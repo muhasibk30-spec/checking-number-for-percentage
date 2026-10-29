@@ -4,10 +4,9 @@
 // To connect to a remote backend server or custom domain name:
 // 1. Enter your server URL below (e.g. 'https://api.yourdomain.com' or 'https://your-app.onrender.com')
 // 2. Or configure it directly in the Admin Panel under "Server Settings".
-// If hosted on the same domain or localhost, leave it as '' (empty string).
 
 const PERFINTED_CONFIG = {
-    // Default server/domain URL (empty string = same host / relative path)
+    // Default server/domain URL (empty string = auto-detects localhost:3000 or current host)
     DEFAULT_API_URL: '',
 
     // Get current active API Base URL
@@ -19,7 +18,16 @@ const PERFINTED_CONFIG = {
         if (window.PERFINTED_API_URL && window.PERFINTED_API_URL.trim() !== '') {
             return window.PERFINTED_API_URL.trim().replace(/\/+$/, '');
         }
-        return this.DEFAULT_API_URL.trim().replace(/\/+$/, '');
+        if (this.DEFAULT_API_URL && this.DEFAULT_API_URL.trim() !== '') {
+            return this.DEFAULT_API_URL.trim().replace(/\/+$/, '');
+        }
+        // Auto-detect: If opened via file:/// or VS Code Live Server (port 5500/etc), connect to http://localhost:3000
+        if (window.location.protocol === 'file:' || 
+            (window.location.hostname === '127.0.0.1' && window.location.port !== '3000') ||
+            (window.location.hostname === 'localhost' && window.location.port !== '3000')) {
+            return 'http://localhost:3000';
+        }
+        return '';
     },
 
     // Save custom server/domain URL
