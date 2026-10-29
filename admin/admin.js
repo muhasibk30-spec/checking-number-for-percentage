@@ -2,7 +2,14 @@
 // Perfinted Admin CMS — admin.js
 // ============================================================
 
-const API = '';
+function getApi() {
+    return window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.getApiUrl() : (localStorage.getItem('PERFINTED_API_URL') || '');
+}
+
+function getHeaders(custom = {}) {
+    return window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.getAuthHeaders(custom) : custom;
+}
+
 let allStudents = [];
 let allResults = [];
 let allClasses = [];
@@ -11,18 +18,26 @@ let allClasses = [];
 // INIT — Auth check and boot
 // ============================================================
 async function init() {
-    const res = await fetch(`${API}/api/auth/me`, { credentials: 'include' });
-    if (!res.ok) {
-        window.location.href = '/admin/login.html';
-        return;
+    try {
+        const res = await fetch(`${getApi()}/api/auth/me`, {
+            credentials: 'include',
+            headers: getHeaders()
+        });
+        if (!res.ok) {
+            window.location.href = '/admin/login.html';
+            return;
+        }
+        const me = await res.json();
+        document.getElementById('adminUsername').textContent = me.username;
+        loadOverview();
+        loadStudents();
+        loadResults();
+        loadClasses();
+        loadSubjects();
+        loadServerSettings();
+    } catch (e) {
+        console.warn('Could not connect to backend server:', e);
     }
-    const me = await res.json();
-    document.getElementById('adminUsername').textContent = me.username;
-    loadOverview();
-    loadStudents();
-    loadResults();
-    loadClasses();
-    loadSubjects();
 }
 
 // ============================================================
@@ -33,6 +48,7 @@ const tabTitles = {
     students: ['Students', 'Manage all enrolled students.'],
     results: ['Results', 'View and manage all student results.'],
     classes: ['Classes & Subjects', 'Manage classes and available subjects.'],
+    serversettings: ['Server & Domain', 'Connect and configure backend server or domain name.'],
     changepassword: ['Change Password', 'Update your admin account password.'],
 };
 
@@ -42,12 +58,15 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-    document.getElementById(`tab-${tabName}`).style.display = 'block';
+    const tabEl = document.getElementById(`tab-${tabName}`);
+    if (tabEl) tabEl.style.display = 'block';
     document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
 
     const [title, subtitle] = tabTitles[tabName] || ['Admin', ''];
     document.getElementById('pageTitle').textContent = title;
     document.getElementById('pageSubtitle').textContent = subtitle;
+
+    if (tabName === 'serversettings') loadServerSettings();
 }
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -58,7 +77,14 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // LOGOUT
 // ============================================================
 async function doLogout() {
-    await fetch(`${API}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    try {
+        await fetch(`${getApi()}/api/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: getHeaders()
+        });
+    } catch (e) {}
+    localStorage.removeItem('perfinted_token');
     window.location.href = '/admin/login.html';
 }
 
@@ -66,7 +92,10 @@ async function doLogout() {
 // OVERVIEW — Stats
 // ============================================================
 async function loadOverview() {
-    const res = await fetch(`${API}/api/results/stats`, { credentials: 'include' });
+    const res = await fetch(`${getApi()}/api/results/stats`, {
+        credentials: 'include',
+        headers: getHeaders()
+    });
     if (!res.ok) return;
     const s = await res.json();
     document.getElementById('statStudents').textContent = s.totalStudents;
@@ -81,7 +110,10 @@ async function loadOverview() {
 // STUDENTS
 // ============================================================
 async function loadStudents() {
-    const res = await fetch(`${API}/api/students`, { credentials: 'include' });
+    const res = await fetch(`${getApi()}/api/students`, {
+        credentials: 'include',
+        headers: getHeaders()
+    });
     if (!res.ok) return;
     allStudents = await res.json();
     renderStudents(allStudents);
@@ -149,12 +181,13 @@ async function saveStudent() {
         return;
     }
 
-    const url = dbId ? `${API}/api/students/${dbId}` : `${API}/api/students`;
+    const url = dbId ? `${getApi()}/api/students/${dbId}` : `${getApi()}/api/students`;
     const method = dbId ? 'PUT' : 'POST';
 
     const res = await fetch(url, {
-        method, credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method,
+        credentials: 'include',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
     });
 
@@ -163,7 +196,7 @@ async function saveStudent() {
         loadStudents();
         loadOverview();
     } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         errDiv.textContent = data.error || 'Failed to save student.';
         errDiv.style.display = 'block';
     }
@@ -173,7 +206,10 @@ async function saveStudent() {
 // RESULTS
 // ============================================================
 async function loadResults() {
-    const res = await fetch(`${API}/api/results`, { credentials: 'include' });
+    const res = await fetch(`${getApi()}/api/results`, {
+        credentials: 'include',
+        headers: getHeaders()
+    });
     if (!res.ok) return;
     allResults = await res.json();
     renderResults(allResults);
@@ -216,7 +252,10 @@ function filterResults() {
 // CLASSES & SUBJECTS
 // ============================================================
 async function loadClasses() {
-    const res = await fetch(`${API}/api/classes`, { credentials: 'include' });
+    const res = await fetch(`${getApi()}/api/classes`, {
+        credentials: 'include',
+        headers: getHeaders()
+    });
     if (!res.ok) return;
     allClasses = await res.json();
     renderClasses();
@@ -237,7 +276,10 @@ function renderClasses() {
 }
 
 async function loadSubjects() {
-    const res = await fetch(`${API}/api/classes/subjects`, { credentials: 'include' });
+    const res = await fetch(`${getApi()}/api/classes/subjects`, {
+        credentials: 'include',
+        headers: getHeaders()
+    });
     if (!res.ok) return;
     const subjects = await res.json();
     const container = document.getElementById('subjectsList');
@@ -272,14 +314,15 @@ async function saveClass() {
         errDiv.style.display = 'block';
         return;
     }
-    const res = await fetch(`${API}/api/classes`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(`${getApi()}/api/classes`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
     });
     if (res.ok) { closeModal('classModal'); loadClasses(); }
     else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         errDiv.textContent = data.error || 'Failed to save class.';
         errDiv.style.display = 'block';
     }
@@ -304,14 +347,15 @@ async function saveSubject() {
         errDiv.style.display = 'block';
         return;
     }
-    const res = await fetch(`${API}/api/classes/subjects`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+    const res = await fetch(`${getApi()}/api/classes/subjects`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
     });
     if (res.ok) { closeModal('subjectModal'); loadSubjects(); }
     else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         errDiv.textContent = data.error || 'Failed to save subject.';
         errDiv.style.display = 'block';
     }
@@ -334,7 +378,11 @@ async function doDelete(type, id) {
         class: `/api/classes/${id}`,
         subject: `/api/classes/subjects/${id}`,
     };
-    await fetch(`${API}${endpoints[type]}`, { method: 'DELETE', credentials: 'include' });
+    await fetch(`${getApi()}${endpoints[type]}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: getHeaders()
+    });
     closeModal('deleteModal');
     if (type === 'student') { loadStudents(); loadOverview(); }
     if (type === 'result') { loadResults(); loadOverview(); }
@@ -362,6 +410,63 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 function formatDate(dt) {
     if (!dt) return '—';
     return new Date(dt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// ============================================================
+// SERVER / DOMAIN SETTINGS
+// ============================================================
+function loadServerSettings() {
+    const input = document.getElementById('adminServerUrlInput');
+    if (input) {
+        input.value = getApi();
+    }
+}
+
+async function testAdminServerConnection() {
+    const input = document.getElementById('adminServerUrlInput');
+    const statusDiv = document.getElementById('adminServerStatus');
+    const url = input.value.trim().replace(/\/+$/, '');
+    statusDiv.style.display = 'block';
+    statusDiv.style.color = '#e2e8f0';
+    statusDiv.style.background = 'rgba(255,255,255,0.06)';
+    statusDiv.textContent = 'Testing connection...';
+
+    try {
+        const target = url ? `${url}/api/health` : '/api/health';
+        const res = await fetch(target);
+        if (res.ok) {
+            statusDiv.style.color = '#4ade80';
+            statusDiv.style.background = 'rgba(74,222,128,0.12)';
+            statusDiv.textContent = '✓ Server reachable and responsive!';
+        } else {
+            statusDiv.style.color = '#f87171';
+            statusDiv.style.background = 'rgba(248,113,113,0.12)';
+            statusDiv.textContent = `Server returned HTTP ${res.status}`;
+        }
+    } catch (e) {
+        statusDiv.style.color = '#f87171';
+        statusDiv.style.background = 'rgba(248,113,113,0.12)';
+        statusDiv.textContent = '✗ Connection failed. Ensure server is running and domain is correct.';
+    }
+}
+
+function saveAdminServerSettings() {
+    const input = document.getElementById('adminServerUrlInput');
+    const statusDiv = document.getElementById('adminServerStatus');
+    const url = input.value.trim();
+    if (window.PERFINTED_CONFIG) {
+        window.PERFINTED_CONFIG.setApiUrl(url);
+    } else {
+        if (!url) localStorage.removeItem('PERFINTED_API_URL');
+        else localStorage.setItem('PERFINTED_API_URL', url.replace(/\/+$/, ''));
+    }
+    statusDiv.style.display = 'block';
+    statusDiv.style.color = '#4ade80';
+    statusDiv.style.background = 'rgba(74,222,128,0.12)';
+    statusDiv.textContent = url ? `✓ Connected to backend: ${url}` : '✓ Reset to same domain (relative path)';
+    setTimeout(() => {
+        init();
+    }, 800);
 }
 
 // ============================================================
@@ -400,10 +505,10 @@ async function doChangePassword() {
     }
 
     try {
-        const res = await fetch(`${API}/api/auth/change-password`, {
+        const res = await fetch(`${getApi()}/api/auth/change-password`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ currentPassword, newPassword })
         });
 
@@ -413,7 +518,7 @@ async function doChangePassword() {
             document.getElementById('cpNewPassword').value = '';
             document.getElementById('cpConfirmPassword').value = '';
         } else {
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             errDiv.textContent = data.error || 'Failed to change password.';
             errDiv.style.display = 'block';
         }

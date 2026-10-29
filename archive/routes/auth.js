@@ -5,6 +5,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
 
+// Helper to extract JWT token from Authorization header or cookie
+function getToken(req) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7).trim();
+    }
+    return req.cookies?.perfinted_token;
+}
+
 // POST /api/auth/login
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
@@ -23,7 +32,7 @@ router.post('/login', (req, res) => {
         maxAge: 8 * 60 * 60 * 1000,
         sameSite: 'Lax'
     });
-    return res.json({ success: true, username: admin.username });
+    return res.json({ success: true, token, username: admin.username });
 });
 
 // POST /api/auth/logout
@@ -34,7 +43,7 @@ router.post('/logout', (req, res) => {
 
 // GET /api/auth/me
 router.get('/me', (req, res) => {
-    const token = req.cookies?.perfinted_token;
+    const token = getToken(req);
     if (!token) return res.status(401).json({ error: 'Not authenticated.' });
     try {
         const payload = jwt.verify(token, JWT_SECRET);
@@ -47,7 +56,7 @@ router.get('/me', (req, res) => {
 // POST /api/auth/change-password  (inline auth — no circular dep)
 router.post('/change-password', (req, res) => {
     // Verify token manually
-    const token = req.cookies?.perfinted_token;
+    const token = getToken(req);
     if (!token) return res.status(401).json({ error: 'Authentication required.' });
     let adminId;
     try {

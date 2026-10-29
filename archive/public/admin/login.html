@@ -45,12 +45,37 @@
                     style="color:var(--primary)">Khan123</code>
             </p>
 
-            <p style="margin-top:0.8rem; text-align:center;">
+            <div style="display:flex; justify-content:center; gap:1.5rem; margin-top:0.8rem;">
                 <button onclick="toggleForgot()"
                     style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.85rem; text-decoration:underline;">
                     Forgot Password?
                 </button>
-            </p>
+                <button onclick="toggleServerConfig()"
+                    style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.85rem; text-decoration:underline;">
+                    ⚙️ Server / Domain
+                </button>
+            </div>
+
+            <!-- Server / Domain Configuration Section -->
+            <div id="serverConfigSection"
+                style="display:none; margin-top:1.5rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:1.5rem;">
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+                    Connect to your remote backend server or custom domain name (e.g. <code>https://api.yourdomain.com</code>). Leave empty for same domain.
+                </p>
+                <div class="form-group" style="margin-bottom:0.8rem;">
+                    <label>Backend Server URL</label>
+                    <input type="url" id="serverUrlInput" placeholder="https://api.yourdomain.com">
+                </div>
+                <div id="serverStatus" style="display:none; padding:0.6rem 0.8rem; border-radius:6px; font-size:0.85rem; margin-bottom:0.8rem;"></div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button type="button" class="btn btn-outline" style="flex:1; padding:0.5rem 0.8rem; font-size:0.85rem;" onclick="testServerConnection()">
+                        Test
+                    </button>
+                    <button type="button" class="btn btn-primary" style="flex:1; padding:0.5rem 0.8rem; font-size:0.85rem;" onclick="saveServerUrl()">
+                        Save & Connect
+                    </button>
+                </div>
+            </div>
 
             <!-- Forgot / Reset Password Form -->
             <div id="forgotSection"
@@ -81,10 +106,66 @@
         </div>
     </div>
 
+    <script src="../config.js"></script>
     <script>
-        fetch('/api/auth/me', { credentials: 'include' }).then(r => {
+        // Initialize server URL input
+        const serverInput = document.getElementById('serverUrlInput');
+        if (serverInput && window.PERFINTED_CONFIG) {
+            serverInput.value = window.PERFINTED_CONFIG.getApiUrl();
+        }
+
+        function toggleServerConfig() {
+            const sec = document.getElementById('serverConfigSection');
+            sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function testServerConnection() {
+            const statusDiv = document.getElementById('serverStatus');
+            const url = serverInput.value.trim().replace(/\/+$/, '');
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#e2e8f0';
+            statusDiv.style.background = 'rgba(255,255,255,0.06)';
+            statusDiv.textContent = 'Testing connection...';
+
+            try {
+                const target = url ? `${url}/api/health` : '/api/health';
+                const res = await fetch(target);
+                if (res.ok) {
+                    statusDiv.style.color = '#4ade80';
+                    statusDiv.style.background = 'rgba(74,222,128,0.12)';
+                    statusDiv.textContent = '✓ Server reachable and online!';
+                } else {
+                    statusDiv.style.color = '#f87171';
+                    statusDiv.style.background = 'rgba(248,113,113,0.12)';
+                    statusDiv.textContent = `Server returned HTTP ${res.status}`;
+                }
+            } catch (e) {
+                statusDiv.style.color = '#f87171';
+                statusDiv.style.background = 'rgba(248,113,113,0.12)';
+                statusDiv.textContent = '✗ Cannot connect to server. Check domain/URL and CORS.';
+            }
+        }
+
+        function saveServerUrl() {
+            const url = serverInput.value.trim();
+            if (window.PERFINTED_CONFIG) {
+                window.PERFINTED_CONFIG.setApiUrl(url);
+            } else {
+                localStorage.setItem('PERFINTED_API_URL', url);
+            }
+            const statusDiv = document.getElementById('serverStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.style.color = '#4ade80';
+            statusDiv.style.background = 'rgba(74,222,128,0.12)';
+            statusDiv.textContent = url ? `✓ Server URL set to: ${url}` : '✓ Reset to default (same domain)';
+        }
+
+        // Check if already authenticated
+        const checkUrl = window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.buildUrl('/api/auth/me') : '/api/auth/me';
+        const authHeaders = window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.getAuthHeaders() : {};
+        fetch(checkUrl, { credentials: 'include', headers: authHeaders }).then(r => {
             if (r.ok) window.location.href = '/admin/index.html';
-        });
+        }).catch(() => {});
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -94,21 +175,34 @@
             btn.textContent = 'Signing in...';
             errDiv.style.display = 'none';
 
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value
-                })
-            });
+            const loginUrl = window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.buildUrl('/api/auth/login') : '/api/auth/login';
 
-            if (res.ok) {
-                window.location.href = '/admin/index.html';
-            } else {
-                const data = await res.json();
-                errDiv.textContent = data.error || 'Login failed.';
+            try {
+                const res = await fetch(loginUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        password: document.getElementById('password').value
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    if (data.token) {
+                        localStorage.setItem('perfinted_token', data.token);
+                    }
+                    window.location.href = '/admin/index.html';
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    errDiv.textContent = data.error || 'Login failed.';
+                    errDiv.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Sign In';
+                }
+            } catch (err) {
+                errDiv.textContent = 'Cannot reach server. Check Server/Domain setting.';
                 errDiv.style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = 'Sign In';
@@ -138,17 +232,24 @@
                 errDiv.style.display = 'block';
                 return;
             }
-            const res = await fetch('/api/auth/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, resetKey, newPassword })
-            });
-            const data = await res.json();
-            if (res.ok) {
-                successDiv.textContent = data.message || 'Password reset successfully!';
-                successDiv.style.display = 'block';
-            } else {
-                errDiv.textContent = data.error || 'Reset failed.';
+
+            const resetUrl = window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.buildUrl('/api/auth/reset-password') : '/api/auth/reset-password';
+            try {
+                const res = await fetch(resetUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, resetKey, newPassword })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    successDiv.textContent = data.message || 'Password reset successfully!';
+                    successDiv.style.display = 'block';
+                } else {
+                    errDiv.textContent = data.error || 'Reset failed.';
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.textContent = 'Failed to connect to server.';
                 errDiv.style.display = 'block';
             }
         }

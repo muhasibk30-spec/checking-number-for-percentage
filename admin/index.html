@@ -61,6 +61,15 @@
                     </svg>
                     Classes & Subjects
                 </div>
+                                <div class="nav-item" data-tab="serversettings">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
+                    Server & Domain
+                </div>
                 <div class="nav-item" data-tab="changepassword">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -344,6 +353,46 @@
                 </div>
             </section>
 
+                    <!-- Server & Domain Settings Tab -->
+            <section id="tab-serversettings" class="tab-content" style="display:none;">
+                <div class="glass-card" style="max-width:560px; margin:2rem auto; padding:2.5rem;">
+                    <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:1.5rem;">
+                        <div style="width:42px; height:42px; border-radius:10px; background:rgba(26,115,232,0.15); display:flex; align-items:center; justify-content:center; color:var(--primary);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 style="font-weight:600; font-size:1.25rem; margin:0;">Server & Domain Connection</h3>
+                            <p style="color:var(--text-muted); font-size:0.85rem; margin:0.25rem 0 0;">Connect this admin panel to your backend API or domain</p>
+                        </div>
+                    </div>
+
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:1.2rem; margin-bottom:1.5rem; font-size:0.85rem; color:var(--text-muted); line-height:1.6;">
+                        <strong style="color:var(--text-main);">Connecting to a Remote Domain:</strong><br>
+                        • If hosting on Render / Railway / VPS / Cloud: enter your backend URL (e.g. <code>https://api.yourdomain.com</code> or <code>https://your-backend.onrender.com</code>).<br>
+                        • If frontend and backend are hosted together on the same server, leave this empty to use relative paths.
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:1.2rem;">
+                        <label>Backend API URL</label>
+                        <input type="url" id="adminServerUrlInput" placeholder="https://api.yourdomain.com" style="width:100%;">
+                    </div>
+
+                    <div id="adminServerStatus" style="display:none; padding:0.75rem 1rem; border-radius:8px; margin-bottom:1.2rem; font-size:0.9rem;"></div>
+
+                    <div style="display:flex; gap:1rem;">
+                        <button type="button" class="btn btn-outline" onclick="testAdminServerConnection()">
+                            Test Connection
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="saveAdminServerSettings()">
+                            Save & Reconnect
+                        </button>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -440,6 +489,7 @@
         </div>
     </div>
 
+    <script src="../config.js"></script>
     <script src="admin.js"></script>
 </body>
 

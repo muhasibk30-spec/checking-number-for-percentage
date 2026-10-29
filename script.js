@@ -2,6 +2,10 @@
 let students = [];
 let searchQuery = '';
 
+function getApi() {
+    return window.PERFINTED_CONFIG ? window.PERFINTED_CONFIG.getApiUrl() : (localStorage.getItem('PERFINTED_API_URL') || '');
+}
+
 // DOM Elements
 const form = document.getElementById('marksForm');
 const resultsBody = document.getElementById('resultsBody');
@@ -19,7 +23,7 @@ if (searchInput) {
 // --- Fetch Data on Load ---
 async function fetchResults() {
     try {
-        const response = await fetch('/api/results');
+        const response = await fetch(`${getApi()}/api/results`);
         if (!response.ok) throw new Error('Server error');
         const data = await response.json();
 
@@ -50,7 +54,7 @@ async function fetchResults() {
         renderTable();
     } catch (error) {
         console.warn('Server offline or error fetching results. Showing empty state.');
-        emptyState.innerHTML = '⚠️ Could not connect to server. Make sure the backend is running.';
+        emptyState.innerHTML = '⚠️ Could not connect to server. Make sure the backend is running or check Server URL.';
         emptyState.style.display = 'block';
     }
 }
@@ -76,7 +80,7 @@ form.addEventListener('submit', async function (e) {
     const student = { id, name, math, science, english, total, average, grade, status };
 
     try {
-        const response = await fetch('/api/results', {
+        const response = await fetch(`${getApi()}/api/results`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(student)
@@ -143,4 +147,3 @@ function renderTable() {
             : 'No results added yet. Start by filling out the form above.';
     }
 }
-
