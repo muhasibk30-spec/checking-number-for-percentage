@@ -3,14 +3,21 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, 'perfinted.db');
+const DB_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'perfinted.db')
+  : path.join(__dirname, 'perfinted.db');
 
 let db = null;
 
 // Save DB to disk
 function saveDb() {
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+  if (!db) return;
+  try {
+    const data = db.export();
+    fs.writeFileSync(DB_PATH, Buffer.from(data));
+  } catch (err) {
+    console.warn('[DB] Could not write database to disk:', err.message);
+  }
 }
 
 // Run schema + seeds
@@ -102,12 +109,29 @@ function getDb() { return db; }
 
 // Initialize async
 async function initDb() {
+  if (db) return db;
+
   const SQL = await initSqlJs();
 
+  // On Vercel, copy bundled database to /tmp if present and not yet created in /tmp
+  const bundledDb = path.join(__dirname, 'perfinted.db');
+  if (process.env.VERCEL && !fs.existsSync(DB_PATH) && fs.existsSync(bundledDb)) {
+    try {
+      fs.copyFileSync(bundledDb, DB_PATH);
+    } catch (e) {
+      console.warn('[DB] Could not copy bundled DB to /tmp:', e.message);
+    }
+  }
+
   if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-    console.log('[DB] Loaded existing database from disk.');
+    try {
+      const fileBuffer = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(fileBuffer);
+      console.log('[DB] Loaded existing database from disk.');
+    } catch (err) {
+      console.warn('[DB] Failed to load disk DB, creating fresh DB:', err.message);
+      db = new SQL.Database();
+    }
   } else {
     db = new SQL.Database();
     console.log('[DB] Created new database.');
